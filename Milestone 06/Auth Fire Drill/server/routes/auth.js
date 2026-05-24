@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { users } = require('../data/store');
+const { users, blacklist } = require('../data/store');
 const { signToken } = require('../auth/jwt');
 
 router.post('/signup', async (req, res) => {
@@ -13,7 +13,8 @@ router.post('/signup', async (req, res) => {
   const user = { id: Date.now().toString(), email, password: hashedPassword, role: role || 'reader' };
   users.push(user);
   
-  const token = signToken({ userId: user.id }); // BROKEN PART 2: Role missing from payload
+  // FIX F2: Role is now included in the JWT payload so backend can enforce it
+  const token = signToken({ userId: user.id, role: user.role });
   res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
 });
 
@@ -24,10 +25,21 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
-  const token = signToken({ userId: user.id }); // BROKEN PART 2: Role missing from payload
-  
-  // Return role so frontend can store it (which is broken but requested)
+  // FIX F2: Role is now included in the JWT payload so backend can enforce it
+  const token = signToken({ userId: user.id, role: user.role });
   res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+});
+
+// FIX F6: Server-side logout — adds token to blacklist so replayed tokens are rejected
+router.post('/logout', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    if (token && !blacklist.includes(token)) {
+      blacklist.push(token);
+    }
+  }
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;
