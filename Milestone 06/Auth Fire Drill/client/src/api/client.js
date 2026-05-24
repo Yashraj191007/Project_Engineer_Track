@@ -10,6 +10,9 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // FIX F5: Add CSRF header — server requires this on all state-changing requests
+  // Malicious cross-origin sites cannot set custom headers, so their requests are blocked
+  config.headers['X-Requested-With'] = 'XMLHttpRequest';
   return config;
 });
 
